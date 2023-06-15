@@ -1,0 +1,41 @@
+## We specify the base image we need for our
+## go application
+FROM  golang:1.20.5-alpine as builder
+
+RUN apk --no-cache add ca-certificates
+
+# add a user here because addgroup and adduser are not available in scratch
+RUN addgroup -S goapp \
+    && adduser -S -u 12345 -g goapp goapp
+
+## We specify that we now wish to execute 
+## any further commands inside our /app
+## directory
+WORKDIR /app
+
+## Add this go mod download command to pull in any dependencies
+COPY go.* ./
+RUN go mod download
+
+COPY *.go ./
+
+## we run go build to compile the binary
+## executable of our Go program
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /server .
+
+# Deploy the application binary into a lean image
+FROM scratch
+
+# Copy the binary to the production image from the builder stage.
+COPY --from=builder /server .
+
+# Copy CA certificattes from the builder image
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ 
+# Copy users from builder image
+COPY --from=builder /etc/passwd /etc/passwd
+
+USER goapp
+
+# Run the web service on container startup.
+ENTRYPOINT ["/server"]

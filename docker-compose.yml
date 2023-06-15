@@ -1,0 +1,9 @@
+# docker-compose.yml
+version: '3'
+services:
+          
+  gateway-service:
+    image: gateway-service
+    ports:
+      - "9180:9180"
+      - "9181:9181"

@@ -1,0 +1,63 @@
+route0:
+		PathRegexp(/\.html$/) && HeaderRegexp("Accept", "text/html") ->
+		modPath(/\.html$/, ".jsx") ->
+		requestHeader("X-Type", "page") ->
+		"https://render.example.org";
+
+route1: 
+        Path("/some/path") -> 
+        "https://backend-0.example.org"; // a simple route
+
+// route definition with a shunt (no backend address)
+route2: 
+        Path("/some/other/path") -> 
+        static("/", "/var/www") -> <shunt>;
+
+// route definition directing requests to an api endpoint
+route3:
+		Method("POST") && Path("/api") ->
+		requestHeader("X-Type", "ajax-post") ->
+		"https://api.example.org";
+
+// route definition with a loopback to route2 (no backend address)
+route4: 
+        Path("/some/alternative/path") -> 
+        setPath("/some/other/path") -> <loopback>;
+
+route6: 
+        Path("/v1/sample/**") 
+        -> "http://localhost:8380";
+
+secureroute6: 
+        Path("/v1/sample/:userId/**") 
+        -> oauthTokeninfoAllKV("role", "authenticated", "aud", "authenticated")
+        -> forwardTokenField("X-Tokeninfo-Forward-Id", "id")
+        -> lua("function request(c,p); if c.path_param.userId ~= c.request.header[\"X-Tokeninfo-Forward-Id\"] then;  c.serve({status_code=403, body=\"Forbidden\"}); return; end; end")
+        -> forwardToken("X-Tokeninfo-Forward", "id", "role")
+        -> "http://localhost:8380";        
+
+route7:
+        Path("/with/basicauth") 
+        -> basicAuth("foo.passwd") 
+        -> status(200) 
+        -> <shunt>;
+
+route8:
+        Path("/with/jwttoken")
+        -> oauthTokeninfoAllKV("role", "authenticated", "aud", "authenticated")
+        -> status(200) 
+        -> <shunt>;
+
+route9:
+        Path("/auth/v1/token") && Method("POST") && QueryParam("grant_type")
+        -> "http://localhost:54321";
+
+route10:
+        Path("/oauth2/token") && Method("POST") && QueryParam("grant_type")
+        -> setPath("/auth/v1/token")
+        -> lua("function request(c,p); print(c.request.url); end")
+        -> "http://localhost:54321";
+
+routeAll: 
+        Path("*") 
+        -> <shunt>;                                      
